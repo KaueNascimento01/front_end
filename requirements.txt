@@ -1,0 +1,7 @@
+Django>=4.2.24
+plotly>=6.3.1
+pandas>=2.3.2
+reportlab>=4.4.4
+django-redis>=6.0.0
+redis>=6.4.0
+

@@ -1,0 +1,853 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Análise de Chamados</title>
+
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js" charset="utf-8"></script>
+    
+<style>
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+
+    body {
+        font-family: 'Roboto', sans-serif;
+        background: #0a0a0a url("{% static 'sistema/images/background2.jpg' %}") no-repeat center center fixed;
+        background-size: cover;
+        min-height: 100vh;
+        color: #ffffff;
+        position: relative;
+    }
+
+    body::after {
+        content: '';
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(10, 10, 10, 0.7);
+        z-index: -1;
+        pointer-events: none;
+    }
+
+    body::before {
+        content: '';
+        position: fixed;
+        top: 0;
+        right: 0;
+        width: 30%;
+        height: 100%;
+        background: linear-gradient(45deg, 
+            rgba(255, 165, 0, 0.1) 0%, 
+            rgba(255, 69, 0, 0.1) 25%, 
+            rgba(255, 20, 147, 0.1) 50%, 
+            rgba(138, 43, 226, 0.1) 75%, 
+            rgba(0, 191, 255, 0.1) 100%);
+        background-size: 400% 400%;
+        animation: gradientShift 15s ease infinite;
+        z-index: -1;
+        pointer-events: none;
+    }
+
+    @keyframes gradientShift {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+    }
+
+    .navbar {
+        width: 100%;
+        background: linear-gradient(135deg, #1a1a1a 0%, #0a0a0a 100%);
+        padding: 15px 30px;
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        align-items: center;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        position: sticky;
+        top: 0;
+        z-index: 1000;
+        border-bottom: 2px solid #FFD700;
+        backdrop-filter: blur(10px);
+    }
+
+    .navbar-logo {
+        height: 50px;
+        width: auto;
+        filter: drop-shadow(0 0 10px rgba(255, 215, 0, 0.3));
+        transition: all 0.3s ease;
+        justify-self: start;
+    }
+
+    .navbar-logo:hover {
+        filter: drop-shadow(0 0 20px rgba(255, 215, 0, 0.6));
+        transform: scale(1.05);
+    }
+
+    .navbar-links {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        justify-self: center;
+    }
+
+    .navbar a {
+        color: white;
+        margin: 0 15px;
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 16px;
+        transition: 0.3s;
+        padding: 8px 15px;
+        border-radius: 6px;
+    }
+
+    .navbar a:hover {
+        background: #FFD700;
+        color: #000000;
+        box-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+        transform: translateY(-2px);
+    }
+
+    .navbar a.active {
+        background: rgba(255,255,255,0.3);
+    }
+
+    .container {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 40px 20px;
+        animation: fadeIn 1s ease-out;
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .logo {
+        max-width: 200px;
+        height: auto;
+        margin: 0 auto 20px;
+        display: block;
+        filter: brightness(0) invert(1);
+    }
+
+    h1 {
+        text-align: center;
+        color: #ffffff;
+        margin-bottom: 50px;
+        font-weight: 300;
+        font-size: 2.8em;
+        text-shadow: 
+            0 0 20px rgba(255, 215, 0, 0.6),
+            0 0 40px rgba(255, 215, 0, 0.3);
+        background: linear-gradient(135deg, #ffffff 0%, #FFD700 50%, #ffffff 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        position: relative;
+        letter-spacing: 2px;
+    }
+
+    h1::after {
+        content: '';
+        position: absolute;
+        bottom: -10px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 100px;
+        height: 2px;
+        background: linear-gradient(90deg, transparent, #FFD700, transparent);
+        border-radius: 2px;
+    }
+
+    /* Cards de Métricas */
+    .metrics-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 25px;
+        margin-bottom: 50px;
+        padding: 20px 0;
+    }
+
+    .metric-card {
+        background: rgba(255, 255, 255, 0.03);
+        backdrop-filter: blur(20px);
+        padding: 30px 25px;
+        border-radius: 20px;
+        box-shadow: 
+            0 8px 32px rgba(0, 0, 0, 0.3),
+            inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        text-align: center;
+        transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        border: 1px solid rgba(255, 215, 0, 0.2);
+        animation: fadeInUp 0.8s ease-out;
+        color: #ffffff;
+        position: relative;
+        overflow: hidden;
+        transform-style: preserve-3d;
+    }
+
+    .metric-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(135deg, 
+            rgba(255, 215, 0, 0.05) 0%, 
+            transparent 50%, 
+            rgba(255, 215, 0, 0.02) 100%);
+        opacity: 0;
+        transition: opacity 0.4s ease;
+        z-index: 1;
+    }
+
+    .metric-card::after {
+        content: '';
+        position: absolute;
+        top: -2px;
+        left: -2px;
+        right: -2px;
+        bottom: -2px;
+        background: linear-gradient(45deg, 
+            rgba(255, 215, 0, 0.3), 
+            rgba(255, 165, 0, 0.1), 
+            rgba(255, 215, 0, 0.3));
+        border-radius: 22px;
+        z-index: -1;
+        opacity: 0;
+        transition: opacity 0.4s ease;
+    }
+
+    .metric-card:hover::before {
+        opacity: 1;
+    }
+
+    .metric-card:hover::after {
+        opacity: 1;
+    }
+
+    .metric-card:hover {
+        transform: translateY(-8px) rotateX(5deg);
+        box-shadow: 
+            0 20px 60px rgba(255, 215, 0, 0.15),
+            0 8px 32px rgba(0, 0, 0, 0.4),
+            inset 0 1px 0 rgba(255, 255, 255, 0.2);
+        border-color: rgba(255, 215, 0, 0.4);
+    }
+
+    .metric-card h3 {
+        font-size: 14px;
+        font-weight: 500;
+        color: #FFD700;
+        margin-bottom: 10px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+    }
+
+    .metric-card .value {
+        font-size: 42px;
+        font-weight: 700;
+        color: #ffffff;
+        margin-bottom: 5px;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+    }
+
+    .metric-card .label {
+        font-size: 13px;
+        color: #cccccc;
+    }
+
+    /* Filtros */
+    .filters-container {
+        background: rgba(255, 255, 255, 0.02);
+        backdrop-filter: blur(20px);
+        padding: 30px;
+        border-radius: 20px;
+        box-shadow: 
+            0 8px 32px rgba(0, 0, 0, 0.3),
+            inset 0 1px 0 rgba(255, 255, 255, 0.08);
+        margin-bottom: 35px;
+        border: 1px solid rgba(255, 215, 0, 0.2);
+        position: relative;
+        transform-style: preserve-3d;
+        transition: all 0.3s ease;
+    }
+
+    .filters-container::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(135deg, 
+            rgba(255, 215, 0, 0.03) 0%, 
+            transparent 50%, 
+            rgba(255, 215, 0, 0.02) 100%);
+        opacity: 0;
+        transition: opacity 0.3s ease;
+        z-index: 0;
+        pointer-events: none;
+    }
+
+    .filters-container:hover::before {
+        opacity: 1;
+    }
+
+    .filters-container:hover {
+        transform: translateY(-2px);
+        box-shadow: 
+            0 12px 40px rgba(255, 215, 0, 0.08),
+            0 8px 32px rgba(0, 0, 0, 0.4),
+            inset 0 1px 0 rgba(255, 255, 255, 0.12);
+        border-color: rgba(255, 215, 0, 0.3);
+    }
+
+    .filters-form {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 20px;
+        align-items: end;
+        position: relative;
+        z-index: 10;
+    }
+
+    .filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        position: relative;
+        z-index: 15;
+    }
+
+    .filter-group label {
+        font-weight: 600;
+        color: #FFD700;
+        font-size: 14px;
+        text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+    }
+
+    .filter-group select,
+    .filter-group input[type="date"] {
+        padding: 12px 16px;
+        border: 1px solid rgba(255, 215, 0, 0.2);
+        border-radius: 12px;
+        font-size: 14px;
+        background: rgba(255, 255, 255, 0.05);
+        backdrop-filter: blur(10px);
+        color: #ffffff;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        position: relative;
+        z-index: 20;
+        cursor: pointer;
+    }
+
+    .filter-group select:focus,
+    .filter-group input[type="date"]:focus {
+        border-color: rgba(255, 215, 0, 0.4);
+        outline: none;
+        background: rgba(255, 255, 255, 0.08);
+        box-shadow: 0 0 25px rgba(255, 215, 0, 0.2);
+        transform: translateY(-2px);
+    }
+
+    .btn-filter {
+        background: rgba(255, 215, 0, 0.1);
+        backdrop-filter: blur(10px);
+        color: #FFD700;
+        padding: 12px 24px;
+        border: 1px solid rgba(255, 215, 0, 0.3);
+        border-radius: 12px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        z-index: 20;
+    }
+
+    .btn-filter::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255, 215, 0, 0.2), transparent);
+        transition: left 0.5s;
+    }
+
+    .btn-filter:hover::before {
+        left: 100%;
+    }
+
+    .btn-filter:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 25px rgba(255, 215, 0, 0.3);
+        background: rgba(255, 215, 0, 0.15);
+        border-color: rgba(255, 215, 0, 0.5);
+        color: #ffffff;
+    }
+
+    .filter-actions {
+        margin-left: auto;
+        position: relative;
+        z-index: 15;
+    }
+
+    .btn-export {
+        background: rgba(255, 255, 255, 0.05);
+        backdrop-filter: blur(10px);
+        color: #FFD700;
+        padding: 12px 24px;
+        text-decoration: none;
+        border: 1px solid rgba(255, 215, 0, 0.3);
+        border-radius: 12px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        display: inline-block;
+        position: relative;
+        overflow: hidden;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        z-index: 20;
+        cursor: pointer;
+    }
+
+    .btn-export::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255, 215, 0, 0.15), transparent);
+        transition: left 0.5s;
+    }
+
+    .btn-export:hover::before {
+        left: 100%;
+    }
+
+    .btn-export:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 25px rgba(255, 215, 0, 0.3);
+        background: rgba(255, 215, 0, 0.1);
+        border-color: rgba(255, 215, 0, 0.5);
+        color: #ffffff;
+    }
+
+    /* Alertas */
+    .alerts-container {
+        margin-bottom: 30px;
+    }
+
+    .alert {
+        padding: 15px 20px;
+        border-radius: 10px;
+        margin-bottom: 10px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 500;
+        animation: slideInDown 0.5s ease-out;
+    }
+
+    .alert-warning {
+        background: rgba(255, 215, 0, 0.1);
+        backdrop-filter: blur(15px);
+        color: #FFD700;
+        border-left: 4px solid rgba(255, 215, 0, 0.6);
+        box-shadow: 
+            0 8px 32px rgba(255, 215, 0, 0.15),
+            inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 215, 0, 0.2);
+    }
+
+    .alert-success {
+        background: rgba(255, 255, 255, 0.03);
+        backdrop-filter: blur(15px);
+        color: #ffffff;
+        border-left: 4px solid rgba(255, 215, 0, 0.6);
+        box-shadow: 
+            0 8px 32px rgba(0, 0, 0, 0.2),
+            inset 0 1px 0 rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 215, 0, 0.15);
+    }
+
+    .alert-info {
+        background: rgba(255, 255, 255, 0.02);
+        backdrop-filter: blur(15px);
+        color: #ffffff;
+        border-left: 4px solid rgba(255, 215, 0, 0.6);
+        box-shadow: 
+            0 8px 32px rgba(0, 0, 0, 0.2),
+            inset 0 1px 0 rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 215, 0, 0.15);
+    }
+
+    .alert-icon {
+        font-size: 18px;
+    }
+
+    @keyframes slideInDown {
+        from {
+            opacity: 0;
+            transform: translateY(-20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    /* Cards de Gráficos */
+    .charts-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+        gap: 35px;
+        margin-bottom: 40px;
+        padding: 20px 0;
+    }
+
+    .chart-card {
+        background: rgba(255, 255, 255, 0.02);
+        backdrop-filter: blur(25px);
+        padding: 35px 30px;
+        border-radius: 24px;
+        box-shadow: 
+            0 12px 40px rgba(0, 0, 0, 0.4),
+            inset 0 1px 0 rgba(255, 255, 255, 0.08),
+            inset 0 -1px 0 rgba(255, 215, 0, 0.1);
+        border: 1px solid rgba(255, 215, 0, 0.15);
+        animation: fadeInUp 0.8s ease-out;
+        overflow: hidden;
+        min-height: 520px;
+        position: relative;
+        transform-style: preserve-3d;
+        transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    }
+
+    .chart-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(135deg, 
+            rgba(255, 215, 0, 0.03) 0%, 
+            transparent 30%, 
+            transparent 70%, 
+            rgba(255, 215, 0, 0.02) 100%);
+        opacity: 0;
+        transition: opacity 0.4s ease;
+        z-index: 1;
+    }
+
+    .chart-card::after {
+        content: '';
+        position: absolute;
+        top: -3px;
+        left: -3px;
+        right: -3px;
+        bottom: -3px;
+        background: linear-gradient(45deg, 
+            rgba(255, 215, 0, 0.2), 
+            rgba(255, 165, 0, 0.05), 
+            rgba(255, 215, 0, 0.2));
+        border-radius: 27px;
+        z-index: -1;
+        opacity: 0;
+        transition: opacity 0.4s ease;
+    }
+
+    .chart-card:hover::before {
+        opacity: 1;
+    }
+
+    .chart-card:hover::after {
+        opacity: 1;
+    }
+
+    .chart-card:hover {
+        transform: translateY(-10px) rotateX(3deg) rotateY(2deg);
+        box-shadow: 
+            0 25px 80px rgba(255, 215, 0, 0.12),
+            0 12px 40px rgba(0, 0, 0, 0.5),
+            inset 0 1px 0 rgba(255, 255, 255, 0.15),
+            inset 0 -1px 0 rgba(255, 215, 0, 0.2);
+        border-color: rgba(255, 215, 0, 0.3);
+    }
+
+    .chart-full-width {
+        grid-column: 1 / -1;
+    }
+
+    /* Ajustes específicos para os gráficos Plotly */
+    .chart-card > div {
+        width: 100% !important;
+        height: 400px !important;
+        max-width: 100% !important;
+    }
+
+    /* Garantir que os gráficos não ultrapassem os limites */
+    .chart-card .plotly {
+        width: 100% !important;
+        height: 400px !important;
+        max-width: 100% !important;
+    }
+
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    /* Responsividade */
+    @media (max-width: 1200px) {
+        .charts-container {
+            grid-template-columns: 1fr;
+        }
+        
+        .chart-card {
+            min-height: 450px;
+        }
+    }
+
+    @media (max-width: 1000px) {
+        .charts-container {
+            grid-template-columns: 1fr;
+            gap: 20px;
+        }
+        
+        .chart-card {
+            padding: 20px;
+            min-height: 400px;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .container {
+            padding: 20px 10px;
+        }
+
+        h1 {
+            font-size: 2em;
+            margin-bottom: 30px;
+        }
+
+        .metrics-container {
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+        }
+
+        .metric-card {
+            padding: 20px 15px;
+        }
+
+        .metric-card .value {
+            font-size: 32px;
+        }
+
+        .chart-card {
+            padding: 20px;
+        }
+
+        .navbar a {
+            margin: 0 8px;
+            font-size: 14px;
+            padding: 6px 10px;
+        }
+    }
+
+    @media (max-width: 480px) {
+        h1 {
+            font-size: 1.5em;
+        }
+
+        .metrics-container {
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .navbar {
+            padding: 10px 15px;
+        }
+
+        .navbar a {
+            margin: 0 5px;
+            font-size: 12px;
+            padding: 5px 8px;
+        }
+    }
+</style>
+</head>
+<body>
+    <div class="navbar">
+        <img src="{% static 'sistema/images/logo.png' %}" alt="Logo" class="navbar-logo">
+        <div class="navbar-links">
+            <a href="{% url 'cadastrar_chamado' %}">Registrar Chamado</a>
+            <a href="{% url 'views' %}">Chamados de Hoje</a>
+            <a href="{% url 'dashboard' %}" class="active">Dashboard</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjYwIiB2aWV3Qm94PSIwIDAgMjAwIDYwIiBmaWxsPSJub25lIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPgo8cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjYwIiBmaWxsPSIjMGEwYTBhIi8+Cjx0ZXh0IHg9IjEwMCIgeT0iMzUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIyNCIgZm9udC13ZWlnaHQ9ImJvbGQiIGZpbGw9IndoaXRlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5BdHRlbmQ8L3RleHQ+CjxyZWN0IHg9IjY1IiB5PSIyMCIgd2lkdGg9IjMwIiBoZWlnaHQ9IjgiIGZpbGw9IiNGRkQ3MDAiLz4KPC9zdmc+" alt="Attend Logo" class="logo">
+        <h1>📊 Dashboard de Análise de Chamados</h1>
+
+        <!-- Filtros de Período -->
+        <div class="filters-container">
+            <form method="GET" class="filters-form">
+                <div class="filter-group">
+                    <label for="periodo">Período:</label>
+                    <select name="periodo" id="periodo" onchange="this.form.submit()">
+                        <option value="todos" {% if periodo_atual == 'todos' %}selected{% endif %}>Todos os dados</option>
+                        <option value="semana" {% if periodo_atual == 'semana' %}selected{% endif %}>Última semana</option>
+                        <option value="mes" {% if periodo_atual == 'mes' %}selected{% endif %}>Último mês</option>
+                        <option value="ano" {% if periodo_atual == 'ano' %}selected{% endif %}>Último ano</option>
+                        <option value="custom" {% if periodo_atual == 'custom' %}selected{% endif %}>Período personalizado</option>
+                    </select>
+                </div>
+                
+                <div class="filter-group" id="custom-dates" style="display: {% if periodo_atual == 'custom' %}block{% else %}none{% endif %};">
+                    <label for="data_inicio">Data Início:</label>
+                    <input type="date" name="data_inicio" id="data_inicio" value="{{ data_inicio|date:'Y-m-d' }}">
+                    
+                    <label for="data_fim">Data Fim:</label>
+                    <input type="date" name="data_fim" id="data_fim" value="{{ data_fim|date:'Y-m-d' }}">
+                    
+                    <button type="submit" class="btn-filter">Aplicar</button>
+                </div>
+                
+                <div class="filter-actions">
+                    <a href="{% url 'exportar_pdf' %}?periodo={{ periodo_atual }}&data_inicio={{ data_inicio|date:'Y-m-d' }}&data_fim={{ data_fim|date:'Y-m-d' }}" 
+                       class="btn-export" target="_blank">📄 Exportar PDF</a>
+                </div>
+            </form>
+        </div>
+
+        <!-- Alertas -->
+        {% if alertas %}
+        <div class="alerts-container">
+            {% for alerta in alertas %}
+            <div class="alert alert-{{ alerta.tipo }}">
+                <span class="alert-icon">
+                    {% if alerta.tipo == 'warning' %}⚠️
+                    {% elif alerta.tipo == 'success' %}✅
+                    {% elif alerta.tipo == 'info' %}ℹ️
+                    {% else %}📢{% endif %}
+                </span>
+                {{ alerta.mensagem }}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Cards de Métricas -->
+        <div class="metrics-container">
+            <div class="metric-card">
+                <h3>Total de Chamados</h3>
+                <div class="value">{{ total_chamados }}</div>
+                <div class="label">Registrados no sistema</div>
+            </div>
+
+            <div class="metric-card">
+                <h3>Chamados Hoje</h3>
+                <div class="value">{{ chamados_hoje }}</div>
+                <div class="label">Registrados hoje</div>
+            </div>
+
+            <div class="metric-card">
+                <h3>Taxa de Produtividade</h3>
+                <div class="value">{{ taxa_produtividade }}%</div>
+                <div class="label">Chamados produtivos</div>
+            </div>
+
+            <div class="metric-card">
+                <h3>Total de Horas</h3>
+                <div class="value">{{ total_horas }}h</div>
+                <div class="label">Horas trabalhadas</div>
+            </div>
+        </div>
+
+        <!-- Gráficos -->
+        <div class="charts-container">
+            <div class="chart-card">
+                {{ grafico_pizza|safe }}
+            </div>
+
+            <div class="chart-card">
+                {{ grafico_barras_analista|safe }}
+            </div>
+
+            <div class="chart-card">
+                {{ grafico_tempo_medio|safe }}
+            </div>
+
+            <div class="chart-card">
+                {{ grafico_tempo_mes|safe }}
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Adiciona animação suave ao carregar os gráficos
+        window.addEventListener('load', function() {
+            const cards = document.querySelectorAll('.metric-card, .chart-card');
+            cards.forEach((card, index) => {
+                card.style.animationDelay = `${index * 0.1}s`;
+            });
+        });
+
+        // Controlar exibição dos filtros personalizados
+        document.getElementById('periodo').addEventListener('change', function() {
+            const customDates = document.getElementById('custom-dates');
+            if (this.value === 'custom') {
+                customDates.style.display = 'block';
+            } else {
+                customDates.style.display = 'none';
+                // Submeter o formulário automaticamente para outros períodos
+                this.form.submit();
+            }
+        });
+
+        // Auto-submit quando período personalizado for selecionado
+        document.getElementById('data_inicio').addEventListener('change', function() {
+            if (document.getElementById('periodo').value === 'custom') {
+                this.form.submit();
+            }
+        });
+
+        document.getElementById('data_fim').addEventListener('change', function() {
+            if (document.getElementById('periodo').value === 'custom') {
+                this.form.submit();
+            }
+        });
+    </script>
+</body>
+</html>
+
